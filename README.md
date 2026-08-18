@@ -7,7 +7,9 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000
+Live site: https://haulsy-eight.vercel.app
+
+Local: http://localhost:3000 after `npm run dev`.
 
 ## Demo logins (password `demo123`)
 
