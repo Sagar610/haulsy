@@ -15,6 +15,7 @@ import { uid } from "./format";
 import { seedState } from "./seed";
 import type {
   AdminEvent,
+  AppSettings,
   Booking,
   BookingStatus,
   Listing,
@@ -22,12 +23,19 @@ import type {
   Message,
   MoverProfile,
   MoveRequest,
+  OtpPurpose,
   Review,
   Role,
   StoreState,
   User,
 } from "./types";
 import { isAdmin } from "./admin";
+import {
+  e164Canada,
+  isDemoPhone,
+  looksLikePhone,
+  samePhone,
+} from "./phone";
 
 function actor(prev: StoreState): User | null {
   const user = prev.users.find((u) => u.id === prev.currentUserId) ?? null;
@@ -98,9 +106,41 @@ type StoreContextValue = StoreState & {
     role: Role;
   }) => { ok: true } | { ok: false; error: string };
   login: (
-    email: string,
+    identifier: string,
     password: string,
   ) => { ok: true } | { ok: false; error: string };
+  loginGoogle: (input: {
+    googleId: string;
+    email: string;
+    name: string;
+    avatar?: string;
+  }) => { ok: true } | { ok: false; error: string };
+  requestOtp: (input: {
+    target: string;
+    purpose: OtpPurpose;
+  }) => Promise<
+    | { ok: true; sms: boolean; demoCode?: string }
+    | { ok: false; error: string }
+  >;
+  verifyOtp: (target: string, code: string) => { ok: true } | { ok: false; error: string };
+  resetPassword: (
+    target: string,
+    code: string,
+    password: string,
+  ) => { ok: true } | { ok: false; error: string };
+  loginWithOtp: (
+    phone: string,
+    code: string,
+  ) => { ok: true } | { ok: false; error: string };
+  signupWithOtp: (input: {
+    name: string;
+    phone: string;
+    email?: string;
+    password?: string;
+    city: string;
+    role: Role;
+    code: string;
+  }) => { ok: true } | { ok: false; error: string };
   logout: () => void;
   updateAccount: (patch: Partial<Pick<User, "name" | "phone" | "city" | "password">>) => void;
   createListing: (
@@ -154,9 +194,37 @@ type StoreContextValue = StoreState & {
   adminForceBookingStatus: (id: string, status: BookingStatus) => void;
   adminRefundJob: (id: string) => void;
   adminRemoveReview: (id: string) => void;
+  adminSetSettings: (patch: Partial<AppSettings>) => void;
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
+
+function findUser(users: User[], identifier: string): User | undefined {
+  const raw = identifier.trim();
+  if (!raw) return undefined;
+  const em = raw.toLowerCase();
+  return users.find((u) => {
+    if (u.email && u.email.toLowerCase() === em) return true;
+    if (u.googleId && u.googleId === raw) return true;
+    return samePhone(u.phone, raw);
+  });
+}
+
+function otpMatches(
+  otp: StoreState["otp"],
+  target: string,
+  code: string,
+  purpose?: OtpPurpose,
+): boolean {
+  if (!otp) return false;
+  if (Date.now() > otp.expiresAt) return false;
+  if (otp.code !== code.trim()) return false;
+  if (purpose && otp.purpose !== purpose) return false;
+  const same =
+    otp.target.toLowerCase() === target.trim().toLowerCase() ||
+    samePhone(otp.target, target);
+  return same;
+}
 
 function mergeSeedUsers(stored: User[]): User[] {
   const ids = new Set(stored.map((u) => u.id));
@@ -187,6 +255,11 @@ function loadState(): StoreState {
       messages: parsed.messages ?? [],
       reviews: parsed.reviews ?? [],
       adminLog: parsed.adminLog ?? seedState.adminLog,
+      settings: {
+        serviceFeeRate:
+          parsed.settings?.serviceFeeRate ?? seedState.settings.serviceFeeRate,
+      },
+      otp: parsed.otp ?? null,
       currentUserId: parsed.currentUserId ?? null,
     };
   } catch {
@@ -227,18 +300,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         result = { ok: false, error: "Admin accounts cannot be created here." };
         return prev;
       }
-      if (prev.users.some((u) => u.email.toLowerCase() === input.email.toLowerCase())) {
+      const email = input.email.trim().toLowerCase();
+      const phone = input.phone.trim();
+      if (!email && !phone) {
+        result = { ok: false, error: "Add an email or a mobile number." };
+        return prev;
+      }
+      if (email && prev.users.some((u) => u.email && u.email.toLowerCase() === email)) {
         result = { ok: false, error: "That email is already registered." };
+        return prev;
+      }
+      if (phone && prev.users.some((u) => samePhone(u.phone, phone))) {
+        result = { ok: false, error: "That mobile number is already registered." };
         return prev;
       }
       const user: User = {
         id: uid("u"),
         name: input.name,
-        email: input.email.toLowerCase(),
+        email,
         password: input.password,
-        phone: input.phone,
+        phone,
         city: input.city,
         roles: [input.role],
+        phoneVerified: Boolean(phone),
       };
       result = { ok: true };
       return {
@@ -250,19 +334,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
-  const login: StoreContextValue["login"] = useCallback((email, password) => {
+  const login: StoreContextValue["login"] = useCallback((identifier, password) => {
     let result: { ok: true } | { ok: false; error: string } = {
       ok: false,
-      error: "Email or password is not right.",
+      error: "Email, mobile or password is not right.",
     };
-    const em = email.trim().toLowerCase();
+    const id = identifier.trim();
     const pw = password.trim();
     flushSync(() => {
       setState((prev) => {
-        const user = prev.users.find(
-          (u) => u.email.toLowerCase() === em && u.password === pw,
-        );
+        const user = findUser(prev.users, id);
         if (!user) return prev;
+        if (!user.password) {
+          result = {
+            ok: false,
+            error: "This account signs in with Google or a one-time code.",
+          };
+          return prev;
+        }
+        if (user.password !== pw) return prev;
         if (user.suspended) {
           result = {
             ok: false,
@@ -280,6 +370,253 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setState((prev) => ({ ...prev, currentUserId: null }));
   }, []);
+
+  const loginGoogle: StoreContextValue["loginGoogle"] = useCallback((input) => {
+    let result: { ok: true } | { ok: false; error: string } = {
+      ok: false,
+      error: "Google sign-in failed.",
+    };
+    flushSync(() => {
+      setState((prev) => {
+        const email = input.email.trim().toLowerCase();
+        let user =
+          prev.users.find((u) => u.googleId === input.googleId) ??
+          prev.users.find((u) => u.email && u.email.toLowerCase() === email);
+        if (user?.suspended) {
+          result = {
+            ok: false,
+            error: "This account is suspended. Contact Haulsy support.",
+          };
+          return prev;
+        }
+        if (user) {
+          result = { ok: true };
+          return {
+            ...prev,
+            users: prev.users.map((u) =>
+              u.id === user!.id
+                ? {
+                    ...u,
+                    googleId: input.googleId,
+                    name: u.name || input.name,
+                    avatar: input.avatar ?? u.avatar,
+                    email: u.email || email,
+                  }
+                : u,
+            ),
+            currentUserId: user.id,
+          };
+        }
+        const created: User = {
+          id: uid("u"),
+          name: input.name || "Haulsy member",
+          email,
+          password: "",
+          phone: "",
+          city: "Toronto",
+          roles: ["buyer"],
+          googleId: input.googleId,
+          avatar: input.avatar,
+        };
+        result = { ok: true };
+        return {
+          ...prev,
+          users: [...prev.users, created],
+          currentUserId: created.id,
+        };
+      });
+    });
+    return result;
+  }, []);
+
+  const requestOtp: StoreContextValue["requestOtp"] = useCallback(
+    async ({ target, purpose }) => {
+      const raw = target.trim();
+      if (!raw) return { ok: false, error: "Enter an email or mobile number." };
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      let found = false;
+      flushSync(() => {
+        setState((prev) => {
+          if (purpose === "reset" || purpose === "login") {
+            const user = findUser(prev.users, raw);
+            if (!user) return prev;
+            found = true;
+          } else {
+            found = true;
+            if (looksLikePhone(raw) && prev.users.some((u) => samePhone(u.phone, raw))) {
+              found = false;
+              return prev;
+            }
+          }
+          return {
+            ...prev,
+            otp: {
+              target: raw,
+              code,
+              purpose,
+              expiresAt: Date.now() + 10 * 60 * 1000,
+            },
+          };
+        });
+      });
+      if (purpose === "reset" || purpose === "login") {
+        if (!found) {
+          return {
+            ok: false,
+            error: "No account matches that email or mobile number.",
+          };
+        }
+      } else if (!found) {
+        return { ok: false, error: "That mobile number is already registered." };
+      }
+
+      if (looksLikePhone(raw) && !isDemoPhone(raw)) {
+        try {
+          const res = await fetch("/api/otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phone: e164Canada(raw),
+              message: `Your Haulsy code is ${code}. It expires in 10 minutes.`,
+            }),
+          });
+          const data = (await res.json()) as { ok?: boolean };
+          if (data.ok) return { ok: true, sms: true };
+        } catch {
+          /* fall through to demo code */
+        }
+      }
+      return { ok: true, sms: false, demoCode: code };
+    },
+    [],
+  );
+
+  const verifyOtp: StoreContextValue["verifyOtp"] = useCallback((target, code) => {
+    const otp = state.otp;
+    if (!otpMatches(otp, target, code)) {
+      return { ok: false, error: "That code is wrong or has expired." };
+    }
+    return { ok: true };
+  }, [state.otp]);
+
+  const resetPassword: StoreContextValue["resetPassword"] = useCallback(
+    (target, code, password) => {
+      let result: { ok: true } | { ok: false; error: string } = {
+        ok: false,
+        error: "Could not reset password.",
+      };
+      const pw = password.trim();
+      if (pw.length < 6) {
+        return { ok: false, error: "Use at least 6 characters." };
+      }
+      flushSync(() => {
+        setState((prev) => {
+          if (!otpMatches(prev.otp, target, code, "reset")) {
+            result = { ok: false, error: "That code is wrong or has expired." };
+            return prev;
+          }
+          const user = findUser(prev.users, target);
+          if (!user) {
+            result = { ok: false, error: "No account matches that email or mobile." };
+            return prev;
+          }
+          result = { ok: true };
+          return {
+            ...prev,
+            otp: null,
+            users: prev.users.map((u) =>
+              u.id === user.id ? { ...u, password: pw } : u,
+            ),
+          };
+        });
+      });
+      return result;
+    },
+    [],
+  );
+
+  const loginWithOtp: StoreContextValue["loginWithOtp"] = useCallback(
+    (phone, code) => {
+      let result: { ok: true } | { ok: false; error: string } = {
+        ok: false,
+        error: "That code is wrong or has expired.",
+      };
+      flushSync(() => {
+        setState((prev) => {
+          if (!otpMatches(prev.otp, phone, code, "login")) return prev;
+          const user = findUser(prev.users, phone);
+          if (!user) return prev;
+          if (user.suspended) {
+            result = {
+              ok: false,
+              error: "This account is suspended. Contact Haulsy support.",
+            };
+            return prev;
+          }
+          result = { ok: true };
+          return {
+            ...prev,
+            otp: null,
+            currentUserId: user.id,
+            users: prev.users.map((u) =>
+              u.id === user.id ? { ...u, phoneVerified: true } : u,
+            ),
+          };
+        });
+      });
+      return result;
+    },
+    [],
+  );
+
+  const signupWithOtp: StoreContextValue["signupWithOtp"] = useCallback(
+    (input) => {
+      let result: { ok: true } | { ok: false; error: string } = {
+        ok: false,
+        error: "Could not create account",
+      };
+      flushSync(() => {
+        setState((prev) => {
+          if (input.role === "admin") {
+            result = { ok: false, error: "Admin accounts cannot be created here." };
+            return prev;
+          }
+          if (!otpMatches(prev.otp, input.phone, input.code, "signup")) {
+            result = { ok: false, error: "That code is wrong or has expired." };
+            return prev;
+          }
+          if (prev.users.some((u) => samePhone(u.phone, input.phone))) {
+            result = { ok: false, error: "That mobile number is already registered." };
+            return prev;
+          }
+          const email = (input.email ?? "").trim().toLowerCase();
+          if (email && prev.users.some((u) => u.email.toLowerCase() === email)) {
+            result = { ok: false, error: "That email is already registered." };
+            return prev;
+          }
+          const user: User = {
+            id: uid("u"),
+            name: input.name.trim(),
+            email,
+            password: (input.password ?? "").trim(),
+            phone: input.phone.trim(),
+            city: input.city,
+            roles: [input.role],
+            phoneVerified: true,
+          };
+          result = { ok: true };
+          return {
+            ...prev,
+            otp: null,
+            users: [...prev.users, user],
+            currentUserId: user.id,
+          };
+        });
+      });
+      return result;
+    },
+    [],
+  );
 
   const updateAccount: StoreContextValue["updateAccount"] = useCallback(
     (patch) => {
@@ -771,6 +1108,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const adminSetSettings: StoreContextValue["adminSetSettings"] = useCallback(
+    (patch) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        if (!admin) return prev;
+        const next = { ...prev.settings, ...patch };
+        if (typeof next.serviceFeeRate === "number") {
+          next.serviceFeeRate = Math.min(0.5, Math.max(0, next.serviceFeeRate));
+        }
+        return withLog(
+          prev,
+          admin,
+          "settings",
+          `Margin ${(next.serviceFeeRate * 100).toFixed(1)}%`,
+          { settings: next },
+        );
+      });
+    },
+    [],
+  );
+
   const value = useMemo<StoreContextValue>(
     () => ({
       ...state,
@@ -779,6 +1137,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       currentMover,
       signup,
       login,
+      loginGoogle,
+      requestOtp,
+      verifyOtp,
+      resetPassword,
+      loginWithOtp,
+      signupWithOtp,
       logout,
       updateAccount,
       createListing,
@@ -804,6 +1168,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       adminForceBookingStatus,
       adminRefundJob,
       adminRemoveReview,
+      adminSetSettings,
     }),
     [
       state,
@@ -812,6 +1177,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       currentMover,
       signup,
       login,
+      loginGoogle,
+      requestOtp,
+      verifyOtp,
+      resetPassword,
+      loginWithOtp,
+      signupWithOtp,
       logout,
       updateAccount,
       createListing,
@@ -837,6 +1208,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       adminForceBookingStatus,
       adminRefundJob,
       adminRemoveReview,
+      adminSetSettings,
     ],
   );
 

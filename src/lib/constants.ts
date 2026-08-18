@@ -106,6 +106,8 @@ export const TIME_SLOTS = [
 
 export const SERVICE_FEE_RATE = 0.08;
 
+export const STORE_KEY = "haulsy-v9-auth";
+
 export const SIZE_FILTERS = [
   { id: "any", label: "Any size", min: 0, max: Infinity },
   { id: "small", label: "Small", min: 0, max: 0.5 },
@@ -115,8 +117,6 @@ export const SIZE_FILTERS = [
 ] as const;
 
 export const DEMO_PASSWORD = "demo123";
-
-export const STORE_KEY = "haulsy-v8-login";
 
 export const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   Toronto: { lat: 43.6532, lng: -79.3832 },

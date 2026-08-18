@@ -33,6 +33,7 @@ export function distanceQuote(
   volume: number,
   km: number,
   presetHours?: number,
+  feeRate = SERVICE_FEE_RATE,
 ): { hours: number; haulFee: number; serviceFee: number; totalHaul: number } {
   const base = presetHours ?? (volume < 2 ? 1.25 : volume < 6 ? 2 : 3);
   const hours = Math.round((base + driveHours(km)) * 4) / 4;
@@ -41,7 +42,8 @@ export function distanceQuote(
     mover.jobRate,
     Math.round(mover.hourlyRate * hours + mileage),
   );
-  const serviceFee = Math.round(haulFee * SERVICE_FEE_RATE);
+  const rate = Number.isFinite(feeRate) ? feeRate : SERVICE_FEE_RATE;
+  const serviceFee = Math.round(haulFee * rate);
   return { hours, haulFee, serviceFee, totalHaul: haulFee + serviceFee };
 }
 

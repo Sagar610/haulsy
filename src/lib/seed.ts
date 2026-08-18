@@ -20,6 +20,8 @@ const p = (id: string) =>
 
 export const seedState: StoreState = {
   currentUserId: null,
+  settings: { serviceFeeRate: 0.08 },
+  otp: null,
   adminLog: [
     {
       id: "adm-seed",

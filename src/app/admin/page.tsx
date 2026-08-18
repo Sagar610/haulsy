@@ -16,6 +16,7 @@ export default function AdminOverviewPage() {
     movers,
     reviews,
     adminLog,
+    settings,
   } = useStore();
 
   const activePeople = users.filter((u) => !u.suspended).length;
@@ -42,7 +43,11 @@ export default function AdminOverviewPage() {
         <Kpi label="Live listings" value={live} hint={`${reserved} reserved`} />
         <Kpi label="Open jobs" value={open.length} hint={`${pending.length} awaiting mover`} />
         <Kpi label="Paid volume" value={formatPrice(gmv)} hint="Completed card charges" />
-        <Kpi label="Haulsy fees" value={formatPrice(fees)} hint="8% service fee on paid jobs" />
+        <Kpi
+          label="Haulsy fees"
+          value={formatPrice(fees)}
+          hint={`${Math.round(settings.serviceFeeRate * 100)}% service fee on paid jobs`}
+        />
         <Kpi
           label="Movers on shift"
           value={shift.now}

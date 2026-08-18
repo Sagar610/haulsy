@@ -2,25 +2,74 @@
 
 import { AdminHeader, Panel } from "@/components/admin/AdminUi";
 import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Field";
 import { STORE_KEY } from "@/lib/constants";
 import { useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function AdminSettingsPage() {
-  const { resetDemo, adminLog, users } = useStore();
+  const { resetDemo, adminLog, users, settings, adminSetSettings } = useStore();
   const router = useRouter();
   const [done, setDone] = useState(false);
+  const [percent, setPercent] = useState(
+    String(Math.round(settings.serviceFeeRate * 1000) / 10),
+  );
+  const [saved, setSaved] = useState("");
 
   return (
     <div>
       <AdminHeader
         eyebrow="Workspace"
         title="Settings"
-        body="Demo data lives in this browser. There is no server database yet."
+        body="Margin, demo reset, and how this console works."
       />
 
       <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title="Haulsy margin">
+          <p className="text-sm text-ink-soft">
+            Percent added on top of the haul fee (not the item price). New
+            quotes use this rate right away. Jobs already booked keep their old
+            fee.
+          </p>
+          <form
+            className="mt-3 flex items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const n = Number(percent);
+              if (!Number.isFinite(n) || n < 0 || n > 50) {
+                setSaved("Use a number from 0 to 50.");
+                return;
+              }
+              adminSetSettings({ serviceFeeRate: n / 100 });
+              setSaved(`Saved at ${n}%.`);
+            }}
+          >
+            <Field label="Margin %">
+              <Input
+                compact
+                type="number"
+                min={0}
+                max={50}
+                step={0.5}
+                className="w-28"
+                value={percent}
+                onChange={(e) => {
+                  setPercent(e.target.value);
+                  setSaved("");
+                }}
+              />
+            </Field>
+            <Button type="submit" size="sm" className="mb-0.5">
+              Save
+            </Button>
+          </form>
+          {saved ? <p className="mt-2 text-sm text-forest">{saved}</p> : null}
+          <p className="mt-2 text-xs text-ink-soft">
+            Example: $100 haul × {percent || "8"}% = Haulsy take.
+          </p>
+        </Panel>
+
         <Panel title="Demo data">
           <p className="text-sm text-ink-soft">
             Storage key <code className="rounded bg-sage px-1.5 py-0.5">{STORE_KEY}</code>

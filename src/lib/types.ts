@@ -56,6 +56,8 @@ export type User = {
   roles: Role[];
   avatar?: string;
   suspended?: boolean;
+  googleId?: string;
+  phoneVerified?: boolean;
 };
 
 export type Listing = {
@@ -155,6 +157,19 @@ export type AdminEvent = {
   detail: string;
 };
 
+export type OtpPurpose = "reset" | "signup" | "login";
+
+export type OtpChallenge = {
+  target: string;
+  code: string;
+  purpose: OtpPurpose;
+  expiresAt: number;
+};
+
+export type AppSettings = {
+  serviceFeeRate: number;
+};
+
 export type StoreState = {
   users: User[];
   listings: Listing[];
@@ -164,5 +179,7 @@ export type StoreState = {
   messages: Message[];
   reviews: Review[];
   adminLog: AdminEvent[];
+  settings: AppSettings;
+  otp: OtpChallenge | null;
   currentUserId: string | null;
 };

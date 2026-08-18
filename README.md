@@ -42,3 +42,12 @@ Log in as `admin@haulsy.test` and open `/admin`. From there you can:
 - Edit mover rates or remove someone from the roster
 - Remove reviews, read job messages, and inspect CAD finance
 - Reset this browser’s demo data
+- Set Haulsy **margin %** (service fee on haul) under Admin → Settings
+
+## Accounts
+
+- Email + password
+- Mobile number + one-time code (forgot password, signup, login)
+- Google, if `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set
+
+Forgot password: `/forgot-password`. Demo 555 numbers cannot receive SMS; the code is shown on screen. Real numbers try [Textbelt](https://textbelt.com) (1 free SMS per day, or set `TEXTBELT_KEY`).

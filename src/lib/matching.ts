@@ -150,6 +150,7 @@ export function matchMovers(opts: {
   km?: number;
   slot: TimeSlot;
   presetHours?: number;
+  feeRate?: number;
 }): MatchedMover[] {
   const needed = opts.volume * PACK_FACTOR;
   const pickup = opts.pickup ?? cityPoint(opts.pickupCity);
@@ -162,7 +163,13 @@ export function matchMovers(opts: {
     .filter((m) => isWithinAvailability(m, opts.slot))
     .filter((m) => isMoverFree(opts.bookings, m.userId, opts.slot))
     .map((m) => {
-      const quote = distanceQuote(m, opts.volume, km, opts.presetHours);
+      const quote = distanceQuote(
+        m,
+        opts.volume,
+        km,
+        opts.presetHours,
+        opts.feeRate,
+      );
       return {
         mover: m,
         ...quote,

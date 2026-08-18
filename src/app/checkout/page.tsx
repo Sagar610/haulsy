@@ -26,6 +26,11 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 const steps = ["Route", "Mover", "Request", "Sent"];
 
+function cityFromText(text: string, fallback: string): string {
+  const hay = text.toLowerCase();
+  return CITIES.find((c) => hay.includes(c.toLowerCase())) ?? fallback;
+}
+
 function CheckoutInner() {
   const params = useSearchParams();
   const router = useRouter();
@@ -42,6 +47,7 @@ function CheckoutInner() {
     hydrated,
     createBooking,
     sendMessage,
+    settings,
   } = useStore();
 
   const listing = listings.find((l) => l.id === listingId);
@@ -60,7 +66,13 @@ function CheckoutInner() {
   const [routeError, setRouteError] = useState("");
   const [driveKm, setDriveKm] = useState<number | null>(null);
 
-  const cityValue = deliveryCity || currentUser?.city || "Toronto";
+  const listingPickup = listing?.pickupAddress ?? "";
+  const listingCity = listing?.city ?? "Toronto";
+  const cityValue =
+    deliveryCity ||
+    cityFromText(deliveryAddress, listingCity) ||
+    currentUser?.city ||
+    "Toronto";
 
   useEffect(() => {
     if (!hydrated) return;
@@ -146,8 +158,9 @@ function CheckoutInner() {
       km,
       slot,
       presetHours: load.hours,
+      feeRate: settings.serviceFeeRate,
     });
-  }, [load, movers, bookings, slot, from, to, km]);
+  }, [load, movers, bookings, slot, from, to, km, settings.serviceFeeRate]);
 
   const chosen = matches.find((m) => m.mover.userId === selectedMoverId);
 
@@ -261,19 +274,32 @@ function CheckoutInner() {
         <div className="mt-8 space-y-4">
           {listing ? (
             <>
-              <Field label="Deliver to" hint="Start typing — pick an address from the list.">
+              <Field
+                label="Pickup from"
+                hint="Taken from the listing. The mover collects here."
+              >
+                <div className="rounded-xl border border-line bg-sage px-3.5 py-2.5 text-sm">
+                  <p className="font-medium text-ink">{listingPickup || listingCity}</p>
+                  <p className="mt-0.5 text-xs text-ink-soft">{listingCity}</p>
+                </div>
+              </Field>
+              <Field
+                label="Deliver to"
+                hint="Where should the mover bring it?"
+              >
                 <AddressAutocomplete
                   value={deliveryAddress}
                   cityBias={cityValue}
-                  placeholder="Street and unit"
+                  placeholder="Street, unit, city"
                   required
                   onChange={(v) => {
                     setDeliveryAddress(v);
+                    setDeliveryCity(cityFromText(v, listingCity));
                     setDriveKm(null);
                   }}
                   onSelect={(place) => {
                     setDeliveryAddress(place.label);
-                    if (place.city) setDeliveryCity(place.city);
+                    setDeliveryCity(place.city ?? cityFromText(place.label, listingCity));
                     setDropoff({
                       lat: place.lat,
                       lng: place.lng,
@@ -281,16 +307,6 @@ function CheckoutInner() {
                     });
                   }}
                 />
-              </Field>
-              <Field label="City">
-                <Select
-                  value={cityValue}
-                  onChange={(e) => setDeliveryCity(e.target.value)}
-                >
-                  {CITIES.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </Select>
               </Field>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Date">
@@ -352,8 +368,8 @@ function CheckoutInner() {
 
           <JobMap pickup={from} dropoff={to} km={km} onRoute={onRoute} />
           <p className="text-sm text-ink-soft">
-            {formatKm(km)} from {pickupCity} to {dropCity}. Haul fee is hours
-            plus driving distance after 6 km.
+            {formatKm(km)} pickup to delivery. Haul fee is hours plus driving
+            distance after 6 km.
           </p>
           {routeError ? <p className="text-sm text-danger">{routeError}</p> : null}
           <Button
@@ -432,6 +448,11 @@ function CheckoutInner() {
         <div className="mt-8 space-y-5">
           <div className="rounded-[24px] border border-line bg-cream p-5">
             <h2 className="font-medium">Quote</h2>
+            {listing ? (
+              <p className="mt-2 text-sm text-ink-soft">
+                {pickupAddress} → {dropAddress}
+              </p>
+            ) : null}
             <ul className="mt-3 space-y-2 text-sm">
               {itemPrice > 0 ? (
                 <li className="flex justify-between">
@@ -447,7 +468,9 @@ function CheckoutInner() {
                 <span>{formatPrice(haulFee)}</span>
               </li>
               <li className="flex justify-between text-ink-soft">
-                <span>Haulsy fee (8%)</span>
+                <span>
+                  Haulsy fee ({Math.round(settings.serviceFeeRate * 100)}%)
+                </span>
                 <span>{formatPrice(serviceFee)}</span>
               </li>
               <li className="flex justify-between border-t border-line pt-2 text-base font-semibold">
