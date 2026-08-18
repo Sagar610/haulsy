@@ -140,5 +140,11 @@ export function initials(name: string): string {
 export function isListingSold(
   status: "live" | "reserved" | "sold" | "withdrawn",
 ): boolean {
-  return status === "sold" || status === "reserved";
+  return status === "sold";
+}
+
+export function isListingUnavailable(
+  status: "live" | "reserved" | "sold" | "withdrawn",
+): boolean {
+  return status !== "live";
 }

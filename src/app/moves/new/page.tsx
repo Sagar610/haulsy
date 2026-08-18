@@ -1,7 +1,8 @@
 "use client";
 
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { Button } from "@/components/ui/Button";
-import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { Field, Select, Textarea } from "@/components/ui/Field";
 import { PageLoader } from "@/components/ui/Media";
 import { CITIES, LOAD_PRESETS, TIME_SLOTS } from "@/lib/constants";
 import { nextDates, todayIso } from "@/lib/format";
@@ -64,24 +65,35 @@ function MoveForm() {
   const load = LOAD_PRESETS[form.loadPreset as LoadPreset];
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-forest">
         Moves
       </p>
-      <h1 className="font-display mt-2 text-4xl tracking-tight">
+      <h1 className="font-display mt-1 text-3xl tracking-tight">
         Where are we taking it?
       </h1>
       <p className="mt-2 text-ink-soft">
         Same city or across town. We match a mover who covers both ends.
       </p>
 
-      <form onSubmit={submit} className="mt-8 space-y-5">
-        <Field label="Pickup address">
-          <Input
+      <form onSubmit={submit} className="mt-6 space-y-4">
+        <Field
+          label="Pickup address"
+          hint="Start typing — pick an address from the list."
+        >
+          <AddressAutocomplete
             required
             value={form.fromAddress}
-            onChange={set("fromAddress")}
+            cityBias={form.fromCity}
             placeholder="Unit, street, postal code"
+            onChange={(fromAddress) => setForm((f) => ({ ...f, fromAddress }))}
+            onSelect={(place) =>
+              setForm((f) => ({
+                ...f,
+                fromAddress: place.label,
+                fromCity: place.city ?? f.fromCity,
+              }))
+            }
           />
         </Field>
         <Field label="Pickup city">
@@ -91,12 +103,23 @@ function MoveForm() {
             ))}
           </Select>
         </Field>
-        <Field label="Drop-off address">
-          <Input
+        <Field
+          label="Drop-off address"
+          hint="Start typing — pick an address from the list."
+        >
+          <AddressAutocomplete
             required
             value={form.toAddress}
-            onChange={set("toAddress")}
+            cityBias={form.toCity}
             placeholder="Where should it land?"
+            onChange={(toAddress) => setForm((f) => ({ ...f, toAddress }))}
+            onSelect={(place) =>
+              setForm((f) => ({
+                ...f,
+                toAddress: place.label,
+                toCity: place.city ?? f.toCity,
+              }))
+            }
           />
         </Field>
         <Field label="Drop-off city">
@@ -115,11 +138,11 @@ function MoveForm() {
             ))}
           </Select>
         </Field>
-        <p className="rounded-2xl bg-sage px-4 py-3 text-sm text-forest">
+        <p className="rounded-xl bg-sage px-3 py-2 text-sm text-forest">
           About {load.volumeM3} m³ and {load.weightKg} kg. Plan on roughly{" "}
           {load.hours} hours.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Date">
             <Select value={form.date} onChange={set("date")}>
               {nextDates(14).map((d) => (

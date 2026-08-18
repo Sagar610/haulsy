@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { PageLoader } from "@/components/ui/Media";
 import { LOAD_PRESETS } from "@/lib/constants";
 import { formatPrice, formatSlot } from "@/lib/format";
-import { formatMiles } from "@/lib/geo";
+import { formatKm } from "@/lib/geo";
 import { useStore } from "@/lib/store";
 import { use, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -30,6 +30,7 @@ export default function JobPage({
     hydrated,
     acceptJob,
     declineJob,
+    cancelJob,
     updateBookingStatus,
     addReview,
   } = useStore();
@@ -87,7 +88,7 @@ export default function JobPage({
       <JobMap
         pickup={booking.pickup}
         dropoff={booking.dropoff}
-        miles={booking.distanceMiles}
+        km={booking.distanceKm}
       />
 
       <div className="rounded-[24px] border border-line bg-cream p-5 text-sm">
@@ -98,7 +99,7 @@ export default function JobPage({
           <strong>Drop</strong> {booking.deliveryAddress}
         </p>
         <p className="mt-2 text-ink-soft">
-          {formatMiles(booking.distanceMiles)} · haul {formatPrice(booking.haulFee)}{" "}
+          {formatKm(booking.distanceKm)} · haul {formatPrice(booking.haulFee)}{" "}
           + fee {formatPrice(booking.serviceFee)}
           {booking.itemPrice ? ` · item ${formatPrice(booking.itemPrice)}` : ""}
         </p>
@@ -118,6 +119,17 @@ export default function JobPage({
             Decline
           </Button>
         </div>
+      ) : null}
+
+      {isCustomer &&
+      !booking.paid &&
+      (booking.status === "pending" || booking.status === "accepted") ? (
+        <Button
+          variant="outline"
+          onClick={() => cancelJob(booking.id)}
+        >
+          Cancel request
+        </Button>
       ) : null}
 
       {isCustomer && booking.status === "accepted" && !booking.paid ? (

@@ -1,4 +1,4 @@
-export type Role = "buyer" | "seller" | "mover";
+export type Role = "buyer" | "seller" | "mover" | "admin";
 
 export type VehicleType = "car" | "estate" | "van" | "large_van" | "luton";
 
@@ -55,6 +55,7 @@ export type User = {
   city: string;
   roles: Role[];
   avatar?: string;
+  suspended?: boolean;
 };
 
 export type Listing = {
@@ -116,7 +117,7 @@ export type Booking = {
   deliveryCity: string;
   pickup: GeoPoint;
   dropoff: GeoPoint;
-  distanceMiles: number;
+  distanceKm: number;
   itemPrice: number;
   haulFee: number;
   serviceFee: number;
@@ -146,6 +147,14 @@ export type Review = {
   createdAt: string;
 };
 
+export type AdminEvent = {
+  id: string;
+  at: string;
+  actorId: string;
+  action: string;
+  detail: string;
+};
+
 export type StoreState = {
   users: User[];
   listings: Listing[];
@@ -154,5 +163,6 @@ export type StoreState = {
   moveRequests: MoveRequest[];
   messages: Message[];
   reviews: Review[];
+  adminLog: AdminEvent[];
   currentUserId: string | null;
 };

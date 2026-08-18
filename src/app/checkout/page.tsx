@@ -2,9 +2,10 @@
 
 import { JobMap } from "@/components/map/JobMap";
 import { MoverCard } from "@/components/movers/MoverCard";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { Field, Select, Textarea } from "@/components/ui/Field";
 import { EmptyState, PageLoader } from "@/components/ui/Media";
 import { CITIES, LOAD_PRESETS, NOTE_CHIPS, TIME_SLOTS } from "@/lib/constants";
 import {
@@ -14,14 +15,14 @@ import {
   nextDates,
   todayIso,
 } from "@/lib/format";
-import { cityPoint, formatMiles, geocode, haversineMiles } from "@/lib/geo";
+import { cityPoint, formatKm, geocode, haversineKm } from "@/lib/geo";
 import { listingVolume, matchMovers, presetLoad } from "@/lib/matching";
 import { jobsDone, moverRating } from "@/lib/stats";
 import { useStore } from "@/lib/store";
 import type { GeoPoint, TimeSlot } from "@/lib/types";
 import { Check } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 const steps = ["Route", "Mover", "Request", "Sent"];
 
@@ -56,10 +57,9 @@ function CheckoutInner() {
   const [pickup, setPickup] = useState<GeoPoint | null>(null);
   const [dropoff, setDropoff] = useState<GeoPoint | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [routeError, setRouteError] = useState("");
+  const [driveKm, setDriveKm] = useState<number | null>(null);
 
-  const addressValue =
-    deliveryAddress ||
-    (currentUser ? `Somewhere in ${currentUser.city}` : "");
   const cityValue = deliveryCity || currentUser?.city || "Toronto";
 
   useEffect(() => {
@@ -74,7 +74,7 @@ function CheckoutInner() {
 
   const pickupAddress = listing?.pickupAddress ?? move?.fromAddress ?? "";
   const pickupCity = listing?.city ?? move?.fromCity ?? "Toronto";
-  const dropAddress = listing ? addressValue : move?.toAddress ?? addressValue;
+  const dropAddress = listing ? deliveryAddress.trim() : move?.toAddress ?? deliveryAddress.trim();
   const dropCity = listing ? cityValue : move?.toCity ?? cityValue;
 
   useEffect(() => {
@@ -100,7 +100,10 @@ function CheckoutInner() {
 
   const from = pickup ?? cityPoint(pickupCity, pickupAddress);
   const to = dropoff ?? cityPoint(dropCity, dropAddress);
-  const miles = haversineMiles(from, to);
+  const km = driveKm ?? haversineKm(from, to);
+  const onRoute = useCallback((info: { km: number }) => {
+    setDriveKm(info.km);
+  }, []);
 
   const load = useMemo(() => {
     if (listing) {
@@ -140,10 +143,11 @@ function CheckoutInner() {
       dropCity: load.dropCity,
       pickup: from,
       dropoff: to,
+      km,
       slot,
       presetHours: load.hours,
     });
-  }, [load, movers, bookings, slot, from, to]);
+  }, [load, movers, bookings, slot, from, to, km]);
 
   const chosen = matches.find((m) => m.mover.userId === selectedMoverId);
 
@@ -173,12 +177,24 @@ function CheckoutInner() {
     );
   }
 
+  if (listing && listing.status === "reserved") {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16">
+        <EmptyState
+          title="This item is reserved"
+          body="A buyer already requested a mover. It comes back if they decline or cancel."
+          action={<Button href="/marketplace">Browse listings</Button>}
+        />
+      </div>
+    );
+  }
+
   if (listing && listing.status !== "live") {
     return (
       <div className="mx-auto max-w-lg px-4 py-16">
         <EmptyState
           title="This item is sold"
-          body="Someone already requested a mover for it."
+          body="Someone already booked a mover for it."
           action={<Button href="/marketplace">Browse listings</Button>}
         />
       </div>
@@ -204,7 +220,7 @@ function CheckoutInner() {
       deliveryCity: dropCity,
       pickup: from,
       dropoff: to,
-      distanceMiles: miles,
+      distanceKm: km,
       itemPrice,
       haulFee: chosen.haulFee,
       serviceFee: chosen.serviceFee,
@@ -245,12 +261,25 @@ function CheckoutInner() {
         <div className="mt-8 space-y-4">
           {listing ? (
             <>
-              <Field label="Deliver to">
-                <Input
-                  value={addressValue}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="Your address"
+              <Field label="Deliver to" hint="Start typing — pick an address from the list.">
+                <AddressAutocomplete
+                  value={deliveryAddress}
+                  cityBias={cityValue}
+                  placeholder="Street and unit"
                   required
+                  onChange={(v) => {
+                    setDeliveryAddress(v);
+                    setDriveKm(null);
+                  }}
+                  onSelect={(place) => {
+                    setDeliveryAddress(place.label);
+                    if (place.city) setDeliveryCity(place.city);
+                    setDropoff({
+                      lat: place.lat,
+                      lng: place.lng,
+                      label: place.label,
+                    });
+                  }}
                 />
               </Field>
               <Field label="City">
@@ -263,7 +292,7 @@ function CheckoutInner() {
                   ))}
                 </Select>
               </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Date">
                   <Select value={date} onChange={(e) => setDate(e.target.value)}>
                     {nextDates(14).map((d) => (
@@ -288,14 +317,14 @@ function CheckoutInner() {
               </div>
             </>
           ) : move ? (
-            <div className="rounded-[24px] border border-line bg-cream p-5 text-sm">
+            <div className="rounded-xl border border-line bg-cream p-4 text-sm">
               <p>
                 <strong>From</strong> {move.fromAddress}
               </p>
               <p className="mt-2">
                 <strong>To</strong> {move.toAddress}
               </p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <Field label="Change date">
                   <Select value={date} onChange={(e) => setDate(e.target.value)}>
                     {nextDates(14).map((d) => (
@@ -321,12 +350,24 @@ function CheckoutInner() {
             </div>
           ) : null}
 
-          <JobMap pickup={from} dropoff={to} miles={miles} />
+          <JobMap pickup={from} dropoff={to} km={km} onRoute={onRoute} />
           <p className="text-sm text-ink-soft">
-            {formatMiles(miles)} from {pickupCity} to {dropCity}. Haul fee is
-            hours plus mileage after 4 miles.
+            {formatKm(km)} from {pickupCity} to {dropCity}. Haul fee is hours
+            plus driving distance after 6 km.
           </p>
-          <Button onClick={() => setStep(1)} size="lg" className="w-full">
+          {routeError ? <p className="text-sm text-danger">{routeError}</p> : null}
+          <Button
+            onClick={() => {
+              if (listing && !deliveryAddress.trim()) {
+                setRouteError("Add a delivery address.");
+                return;
+              }
+              setRouteError("");
+              setStep(1);
+            }}
+            size="lg"
+            className="w-full"
+          >
             Find movers for {formatSlot(slot)}
           </Button>
         </div>
@@ -335,7 +376,7 @@ function CheckoutInner() {
       {step === 1 ? (
         <div className="mt-8">
           <p className="text-sm text-ink-soft">
-            {formatMiles(miles)} · {formatVolume(load?.volume ?? 0)} ·{" "}
+            {formatKm(km)} · {formatVolume(load?.volume ?? 0)} ·{" "}
             {load?.weightKg} kg · {formatSlot(slot)}
           </p>
           {matches.length === 0 ? (
@@ -360,7 +401,7 @@ function CheckoutInner() {
                     mover={m.mover}
                     user={users.find((u) => u.id === m.mover.userId)}
                     fee={m.totalHaul}
-                    miles={m.miles}
+                    km={m.km}
                     hours={m.hours}
                     rating={stats.rating}
                     reviewCount={stats.count}
@@ -400,7 +441,7 @@ function CheckoutInner() {
               ) : null}
               <li className="flex justify-between">
                 <span>
-                  Haul · {chosen.vehicleLabel} · {formatMiles(chosen.miles)} ·{" "}
+                  Haul · {chosen.vehicleLabel} · {formatKm(chosen.km)} ·{" "}
                   {chosen.hours}h
                 </span>
                 <span>{formatPrice(haulFee)}</span>

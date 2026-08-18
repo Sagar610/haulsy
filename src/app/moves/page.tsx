@@ -1,5 +1,6 @@
 "use client";
 
+import { AvailableNow } from "@/components/movers/AvailableNow";
 import { Button } from "@/components/ui/Button";
 import { SectionHeading } from "@/components/ui/Media";
 import { LOAD_PRESETS } from "@/lib/constants";
@@ -13,8 +14,12 @@ export default function MovesPage() {
       <SectionHeading
         eyebrow="Moves"
         title="Hire a van, not a whole company"
-        body="Tell us the size of the load and when you need it. We match people whose vehicle and diary fit — they set the rate."
+        body="Tell us the size of the load and when you need it. We match people whose vehicle and hours fit — they set the rate."
       />
+
+      <div className="mt-6">
+        <AvailableNow />
+      </div>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(Object.keys(LOAD_PRESETS) as Array<keyof typeof LOAD_PRESETS>).map(
@@ -58,7 +63,7 @@ export default function MovesPage() {
             </p>
             <p className="mt-2 text-cream/85">
               Only movers covering both addresses, free in that slot, with
-              enough capacity, appear — cheapest suitable vehicle first.
+              enough capacity, appear — tightest vehicle fit first, then price.
             </p>
           </li>
           <li>

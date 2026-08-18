@@ -1,5 +1,6 @@
 "use client";
 
+import { AvailableNow } from "@/components/movers/AvailableNow";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { MoverCard } from "@/components/movers/MoverCard";
 import { Button } from "@/components/ui/Button";
@@ -57,10 +58,9 @@ export default function HomePage() {
                 Book a house move
               </Button>
             </div>
-            <p className="mt-4 text-sm text-ink-soft">
-              Movers set their own rates. You only see people whose vehicle
-              actually fits.
-            </p>
+            <div className="mt-5">
+              <AvailableNow />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="overflow-hidden rounded-[28px] bg-sage">
@@ -128,7 +128,7 @@ export default function HomePage() {
             </h2>
             <p className="mt-3 max-w-md text-ink/80">
               Studio, one-bed, or a few awkward pieces. Post the load size and
-              book someone whose diary and vehicle match.
+              book someone whose hours and vehicle match.
             </p>
             <span className="mt-6 inline-flex items-center gap-2 font-medium">
               Book a move <ArrowRight size={16} />
@@ -140,8 +140,8 @@ export default function HomePage() {
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <SectionHeading
           eyebrow="How it works"
-          title="Three steps. No borrowed Transit."
-          body="Built for the moment you realise the Facebook sofa will not fit in a Prius."
+          title="Three steps. No borrowed cargo van."
+          body="Built for the moment you find out the Marketplace sofa will not fit in a Civic."
         />
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {steps.map((s, i) => (

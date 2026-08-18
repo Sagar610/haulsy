@@ -1,5 +1,6 @@
 "use client";
 
+import { AvailableNow } from "@/components/movers/AvailableNow";
 import { MoverCard } from "@/components/movers/MoverCard";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Field";
@@ -27,7 +28,7 @@ export default function MoversPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <SectionHeading
           eyebrow="Movers"
@@ -39,14 +40,18 @@ export default function MoversPage() {
         </Button>
       </div>
 
-      <div className="mt-8 grid gap-3 sm:grid-cols-2">
-        <Select value={city} onChange={(e) => setCity(e.target.value)}>
+      <div className="mt-6">
+        <AvailableNow city={city === "all" ? undefined : city} />
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <Select compact value={city} onChange={(e) => setCity(e.target.value)} className="w-40">
           <option value="all">All cities</option>
           {CITIES.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </Select>
-        <Select value={vehicle} onChange={(e) => setVehicle(e.target.value)}>
+        <Select compact value={vehicle} onChange={(e) => setVehicle(e.target.value)} className="w-40">
           <option value="all">Any vehicle</option>
           {(Object.keys(VEHICLES) as VehicleType[]).map((v) => (
             <option key={v} value={v}>

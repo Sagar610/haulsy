@@ -1,8 +1,14 @@
 import { cn } from "@/lib/format";
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
-const field =
-  "w-full rounded-2xl border border-line bg-cream px-4 py-3 text-[15px] text-ink placeholder:text-ink-soft/70 transition-colors hover:border-forest/25 focus:border-forest focus:outline-none";
+const base =
+  "w-full border border-line bg-cream text-ink placeholder:text-ink-soft/70 transition-colors hover:border-forest/25 focus:border-forest focus:outline-none";
+
+const roomy = "rounded-xl px-3.5 py-2.5 text-sm";
+const compact = "h-9 rounded-lg px-2.5 py-1.5 text-sm";
+
+export const fieldClass = cn(base, roomy);
+export const compactFieldClass = cn(base, compact);
 
 export function Label({
   children,
@@ -12,7 +18,7 @@ export function Label({
   htmlFor?: string;
 }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-medium text-ink">
+    <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-ink">
       {children}
     </label>
   );
@@ -34,15 +40,26 @@ export function Field({
       <Label>{label}</Label>
       {children}
       {hint && !error ? (
-        <p className="mt-1.5 text-xs text-ink-soft">{hint}</p>
+        <p className="mt-1 text-xs text-ink-soft">{hint}</p>
       ) : null}
-      {error ? <p className="mt-1.5 text-xs text-danger">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
     </div>
   );
 }
 
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(field, className)} {...props} />;
+type Compact = { compact?: boolean };
+
+export function Input({
+  className,
+  compact: isCompact,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & Compact) {
+  return (
+    <input
+      className={cn(isCompact ? compactFieldClass : fieldClass, className)}
+      {...props}
+    />
+  );
 }
 
 export function Textarea({
@@ -51,7 +68,7 @@ export function Textarea({
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={cn(field, "min-h-28 resize-y", className)}
+      className={cn(fieldClass, "min-h-24 resize-y", className)}
       {...props}
     />
   );
@@ -59,11 +76,19 @@ export function Textarea({
 
 export function Select({
   className,
+  compact: isCompact,
   children,
   ...props
-}: SelectHTMLAttributes<HTMLSelectElement>) {
+}: SelectHTMLAttributes<HTMLSelectElement> & Compact) {
   return (
-    <select className={cn(field, "appearance-none pr-10", className)} {...props}>
+    <select
+      className={cn(
+        isCompact ? compactFieldClass : fieldClass,
+        "appearance-none bg-[length:12px] pr-8",
+        className,
+      )}
+      {...props}
+    >
       {children}
     </select>
   );

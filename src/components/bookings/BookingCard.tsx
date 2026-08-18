@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { LOAD_PRESETS } from "@/lib/constants";
 import { formatPrice, formatSlot } from "@/lib/format";
-import { formatMiles } from "@/lib/geo";
+import { formatKm } from "@/lib/geo";
 import type { Booking, BookingStatus, Listing, MoveRequest, User } from "@/lib/types";
 
 const statusCopy: Record<
@@ -30,6 +30,7 @@ export function BookingCard({
   onStatus,
   onAccept,
   onDecline,
+  onCancel,
 }: {
   booking: Booking;
   listing?: Listing;
@@ -40,6 +41,7 @@ export function BookingCard({
   onStatus?: (status: BookingStatus) => void;
   onAccept?: () => void;
   onDecline?: () => void;
+  onCancel?: () => void;
 }) {
   const title =
     listing?.title ??
@@ -67,7 +69,7 @@ export function BookingCard({
         <div>
           {booking.pickupAddress} → {booking.deliveryAddress}
         </div>
-        <div>{formatMiles(booking.distanceMiles)}</div>
+        <div>{formatKm(booking.distanceKm)}</div>
         {viewer === "customer" && mover ? <div>Mover {mover.name}</div> : null}
         {viewer === "mover" && customer ? <div>Customer {customer.name}</div> : null}
       </dl>
@@ -78,6 +80,14 @@ export function BookingCard({
         {viewer === "customer" && booking.status === "accepted" && !booking.paid ? (
           <Button href={`/bookings/${booking.id}/pay`} size="sm">
             Pay now
+          </Button>
+        ) : null}
+        {viewer === "customer" &&
+        !booking.paid &&
+        (booking.status === "pending" || booking.status === "accepted") &&
+        onCancel ? (
+          <Button size="sm" variant="ghost" onClick={onCancel}>
+            Cancel request
           </Button>
         ) : null}
         {viewer === "mover" && booking.status === "pending" ? (

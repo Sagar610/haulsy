@@ -16,7 +16,7 @@ const links = [
 ];
 
 export function Header() {
-  const { currentUser, logout } = useStore();
+  const { currentUser, logout, hydrated } = useStore();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -43,8 +43,15 @@ export function Header() {
           <Button href="/marketplace/new" variant="outline" size="sm">
             Sell an item
           </Button>
-          {currentUser ? (
+          {!hydrated ? (
+            <div className="h-10 w-36 rounded-2xl bg-sage/70" aria-hidden />
+          ) : currentUser ? (
             <div className="flex items-center gap-2">
+              {currentUser.roles.includes("admin") ? (
+                <Button href="/admin" variant="ghost" size="sm">
+                  Admin
+                </Button>
+              ) : null}
               {currentUser.roles.includes("mover") ? (
                 <Button href="/inbox" variant="ghost" size="sm">
                   Inbox
@@ -106,13 +113,24 @@ export function Header() {
                 >
                   Dashboard
                 </Link>
-                <Link
-                  href="/inbox"
-                  onClick={() => setOpen(false)}
-                  className="rounded-xl px-3 py-3 text-sm font-medium text-ink hover:bg-sage"
-                >
-                  Inbox
-                </Link>
+                {currentUser.roles.includes("admin") ? (
+                  <Link
+                    href="/admin"
+                    onClick={() => setOpen(false)}
+                    className="rounded-xl px-3 py-3 text-sm font-medium text-ink hover:bg-sage"
+                  >
+                    Admin
+                  </Link>
+                ) : null}
+                {currentUser.roles.includes("mover") ? (
+                  <Link
+                    href="/inbox"
+                    onClick={() => setOpen(false)}
+                    className="rounded-xl px-3 py-3 text-sm font-medium text-ink hover:bg-sage"
+                  >
+                    Inbox
+                  </Link>
+                ) : null}
                 <Link
                   href="/account"
                   onClick={() => setOpen(false)}

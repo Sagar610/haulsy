@@ -26,6 +26,7 @@ export default function DashboardPage() {
     declineJob,
     resetDemo,
     logout,
+    cancelJob,
   } = useStore();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("jobs");
@@ -65,6 +66,11 @@ export default function DashboardPage() {
           <Button href="/account" variant="outline" size="sm">
             Account
           </Button>
+          {currentUser.roles.includes("admin") ? (
+            <Button href="/admin" size="sm">
+              Admin console
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -150,6 +156,7 @@ export default function DashboardPage() {
                     move={moveRequests.find((m) => m.id === b.moveRequestId)}
                     mover={users.find((u) => u.id === b.moverId)}
                     viewer="customer"
+                    onCancel={() => cancelJob(b.id)}
                   />
                 ))}
               </div>

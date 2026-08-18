@@ -15,7 +15,8 @@ const Inner = dynamic(() => import("./JobMapInner"), {
 export function JobMap(props: {
   pickup: GeoPoint;
   dropoff: GeoPoint;
-  miles: number;
+  km: number;
+  onRoute?: (info: { km: number }) => void;
 }) {
   return <Inner {...props} />;
 }

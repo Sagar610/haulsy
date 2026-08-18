@@ -51,13 +51,15 @@ function SignupForm() {
       <p className="mt-2 text-ink-soft">
         One account can buy, sell, and drive. You can add more roles later.
       </p>
-      <form onSubmit={submit} className="mt-8 space-y-4">
+      <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
         <Field label="Full name">
           <Input value={form.name} onChange={set("name")} required />
         </Field>
         <Field label="Email">
           <Input
-            type="email"
+            type="text"
+            inputMode="email"
+            autoComplete="username"
             value={form.email}
             onChange={set("email")}
             required
@@ -95,7 +97,10 @@ function SignupForm() {
       </form>
       <p className="mt-8 text-center text-sm text-ink-soft">
         Already have an account?{" "}
-        <a href="/login" className="font-medium text-forest">
+        <a
+          href={`/login?next=${encodeURIComponent(next)}`}
+          className="font-medium text-forest"
+        >
           Log in
         </a>
       </p>

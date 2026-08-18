@@ -9,10 +9,9 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json()) as {
     amountCents?: number;
-    amountPence?: number;
     bookingId?: string;
   };
-  const amount = Math.round(Number(body.amountCents ?? body.amountPence) || 0);
+  const amount = Math.round(Number(body.amountCents) || 0);
   if (amount < 50) {
     return NextResponse.json({ error: "Amount too small" }, { status: 400 });
   }

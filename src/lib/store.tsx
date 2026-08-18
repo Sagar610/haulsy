@@ -10,13 +10,15 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import { STORE_KEY } from "./constants";
+import { DEMO_PASSWORD, STORE_KEY } from "./constants";
 import { uid } from "./format";
 import { seedState } from "./seed";
 import type {
+  AdminEvent,
   Booking,
   BookingStatus,
   Listing,
+  ListingStatus,
   Message,
   MoverProfile,
   MoveRequest,
@@ -25,6 +27,63 @@ import type {
   StoreState,
   User,
 } from "./types";
+import { isAdmin } from "./admin";
+
+function actor(prev: StoreState): User | null {
+  const user = prev.users.find((u) => u.id === prev.currentUserId) ?? null;
+  return user && isAdmin(user) ? user : null;
+}
+
+function withLog(
+  prev: StoreState,
+  admin: User,
+  action: string,
+  detail: string,
+  patch: Partial<StoreState>,
+): StoreState {
+  const event: AdminEvent = {
+    id: uid("adm"),
+    at: new Date().toISOString(),
+    actorId: admin.id,
+    action,
+    detail,
+  };
+  return {
+    ...prev,
+    ...patch,
+    adminLog: [event, ...(patch.adminLog ?? prev.adminLog)].slice(0, 80),
+  };
+}
+
+function applyBookingStatus(
+  prev: StoreState,
+  id: string,
+  status: BookingStatus,
+  paid?: boolean,
+): StoreState {
+  const booking = prev.bookings.find((b) => b.id === id);
+  if (!booking) return prev;
+  const nextPaid = paid ?? booking.paid;
+  return {
+    ...prev,
+    bookings: prev.bookings.map((b) =>
+      b.id === id ? { ...b, status, paid: nextPaid } : b,
+    ),
+    listings: booking.listingId
+      ? prev.listings.map((l) => {
+          if (l.id !== booking.listingId) return l;
+          if (status === "delivered" && nextPaid) return { ...l, status: "sold" };
+          if (
+            (status === "cancelled" || status === "declined") &&
+            !nextPaid
+          ) {
+            return { ...l, status: "live" };
+          }
+          return l;
+        })
+      : prev.listings,
+  };
+}
 
 type StoreContextValue = StoreState & {
   hydrated: boolean;
@@ -60,6 +119,7 @@ type StoreContextValue = StoreState & {
   updateBookingStatus: (id: string, status: BookingStatus) => void;
   acceptJob: (id: string) => void;
   declineJob: (id: string) => void;
+  cancelJob: (id: string) => void;
   markPaid: (id: string, paymentId?: string) => void;
   sendMessage: (bookingId: string, body: string) => void;
   addReview: (input: {
@@ -69,21 +129,65 @@ type StoreContextValue = StoreState & {
     comment: string;
   }) => void;
   resetDemo: () => void;
+  adminCreateUser: (input: {
+    name: string;
+    email: string;
+    phone: string;
+    city: string;
+    roles: Role[];
+  }) => { ok: true } | { ok: false; error: string };
+  adminUpdateUser: (
+    id: string,
+    patch: Partial<Pick<User, "name" | "phone" | "city" | "roles" | "password">>,
+  ) => void;
+  adminSetSuspended: (id: string, suspended: boolean) => void;
+  adminUpdateListing: (
+    id: string,
+    patch: Partial<Pick<Listing, "title" | "price" | "status" | "city">>,
+  ) => void;
+  adminSetListingStatus: (id: string, status: ListingStatus) => void;
+  adminRemoveMover: (userId: string) => void;
+  adminUpdateMoverRates: (
+    userId: string,
+    patch: Partial<Pick<MoverProfile, "hourlyRate" | "jobRate" | "cities">>,
+  ) => void;
+  adminForceBookingStatus: (id: string, status: BookingStatus) => void;
+  adminRefundJob: (id: string) => void;
+  adminRemoveReview: (id: string) => void;
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
+
+function mergeSeedUsers(stored: User[]): User[] {
+  const ids = new Set(stored.map((u) => u.id));
+  const emails = new Set(stored.map((u) => u.email.toLowerCase()));
+  const missing = seedState.users.filter(
+    (u) => !ids.has(u.id) && !emails.has(u.email.toLowerCase()),
+  );
+  return missing.length ? [...stored, ...missing] : stored;
+}
 
 function loadState(): StoreState {
   if (typeof window === "undefined") return seedState;
   try {
     const raw = window.localStorage.getItem(STORE_KEY);
     if (!raw) return seedState;
-    const parsed = JSON.parse(raw) as StoreState;
-    if (!parsed.users || !parsed.listings) return seedState;
+    const parsed = JSON.parse(raw) as Partial<StoreState>;
+    if (!Array.isArray(parsed.users) || !Array.isArray(parsed.listings)) {
+      return seedState;
+    }
     return {
+      ...seedState,
       ...parsed,
+      users: mergeSeedUsers(parsed.users),
+      listings: parsed.listings,
+      movers: parsed.movers ?? seedState.movers,
+      bookings: parsed.bookings ?? seedState.bookings,
+      moveRequests: parsed.moveRequests ?? seedState.moveRequests,
       messages: parsed.messages ?? [],
       reviews: parsed.reviews ?? [],
+      adminLog: parsed.adminLog ?? seedState.adminLog,
+      currentUserId: parsed.currentUserId ?? null,
     };
   } catch {
     return seedState;
@@ -119,6 +223,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       error: "Could not create account",
     };
     setState((prev) => {
+      if (input.role === "admin") {
+        result = { ok: false, error: "Admin accounts cannot be created here." };
+        return prev;
+      }
       if (prev.users.some((u) => u.email.toLowerCase() === input.email.toLowerCase())) {
         result = { ok: false, error: "That email is already registered." };
         return prev;
@@ -147,15 +255,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ok: false,
       error: "Email or password is not right.",
     };
-    setState((prev) => {
-      const user = prev.users.find(
-        (u) =>
-          u.email.toLowerCase() === email.toLowerCase() &&
-          u.password === password,
-      );
-      if (!user) return prev;
-      result = { ok: true };
-      return { ...prev, currentUserId: user.id };
+    const em = email.trim().toLowerCase();
+    const pw = password.trim();
+    flushSync(() => {
+      setState((prev) => {
+        const user = prev.users.find(
+          (u) => u.email.toLowerCase() === em && u.password === pw,
+        );
+        if (!user) return prev;
+        if (user.suspended) {
+          result = {
+            ok: false,
+            error: "This account is suspended. Contact Haulsy support.",
+          };
+          return prev;
+        }
+        result = { ok: true };
+        return { ...prev, currentUserId: user.id };
+      });
     });
     return result;
   }, []);
@@ -314,7 +431,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? prev.listings.map((l) => {
                 if (l.id !== booking.listingId) return l;
                 if (status === "delivered") return { ...l, status: "sold" };
-                if (status === "cancelled" || status === "declined") {
+                if (
+                  (status === "cancelled" || status === "declined") &&
+                  !booking.paid
+                ) {
                   return { ...l, status: "live" };
                 }
                 return l;
@@ -343,7 +463,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         bookings: prev.bookings.map((b) =>
           b.id === id ? { ...b, status: "declined" } : b,
         ),
-        listings: booking?.listingId
+        listings:
+          booking?.listingId && !booking.paid
+            ? prev.listings.map((l) =>
+                l.id === booking.listingId ? { ...l, status: "live" } : l,
+              )
+            : prev.listings,
+      };
+    });
+  }, []);
+
+  const cancelJob = useCallback((id: string) => {
+    setState((prev) => {
+      const booking = prev.bookings.find((b) => b.id === id);
+      if (!booking || booking.paid) return prev;
+      if (booking.status !== "pending" && booking.status !== "accepted") {
+        return prev;
+      }
+      return {
+        ...prev,
+        bookings: prev.bookings.map((b) =>
+          b.id === id ? { ...b, status: "cancelled" } : b,
+        ),
+        listings: booking.listingId
           ? prev.listings.map((l) =>
               l.id === booking.listingId ? { ...l, status: "live" } : l,
             )
@@ -417,6 +559,218 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(seedState);
   }, []);
 
+  const adminCreateUser: StoreContextValue["adminCreateUser"] = useCallback(
+    (input) => {
+      let result: { ok: true } | { ok: false; error: string } = {
+        ok: false,
+        error: "Could not create user",
+      };
+      setState((prev) => {
+        const admin = actor(prev);
+        if (!admin) return prev;
+        const email = input.email.trim().toLowerCase();
+        if (!input.name.trim() || !email) {
+          result = { ok: false, error: "Name and email are required." };
+          return prev;
+        }
+        if (prev.users.some((u) => u.email.toLowerCase() === email)) {
+          result = { ok: false, error: "That email is already registered." };
+          return prev;
+        }
+        const roles = input.roles.length ? input.roles : (["buyer"] as Role[]);
+        const user: User = {
+          id: uid("u"),
+          name: input.name.trim(),
+          email,
+          password: DEMO_PASSWORD,
+          phone: input.phone.trim(),
+          city: input.city,
+          roles,
+        };
+        result = { ok: true };
+        return withLog(prev, admin, "create_user", `${user.name} · ${user.email}`, {
+          users: [...prev.users, user],
+        });
+      });
+      return result;
+    },
+    [],
+  );
+
+  const adminUpdateUser: StoreContextValue["adminUpdateUser"] = useCallback(
+    (id, patch) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        const user = prev.users.find((u) => u.id === id);
+        if (!admin || !user) return prev;
+        if (id === admin.id && patch.roles && !patch.roles.includes("admin")) {
+          return prev;
+        }
+        return withLog(
+          prev,
+          admin,
+          "update_user",
+          `${user.name}: ${Object.keys(patch).join(", ")}`,
+          {
+            users: prev.users.map((u) => (u.id === id ? { ...u, ...patch } : u)),
+          },
+        );
+      });
+    },
+    [],
+  );
+
+  const adminSetSuspended: StoreContextValue["adminSetSuspended"] = useCallback(
+    (id, suspended) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        const user = prev.users.find((u) => u.id === id);
+        if (!admin || !user || user.id === admin.id) return prev;
+        return withLog(
+          prev,
+          admin,
+          suspended ? "suspend_user" : "restore_user",
+          user.name,
+          {
+            users: prev.users.map((u) =>
+              u.id === id ? { ...u, suspended } : u,
+            ),
+            currentUserId:
+              suspended && prev.currentUserId === id ? prev.currentUserId : prev.currentUserId,
+          },
+        );
+      });
+    },
+    [],
+  );
+
+  const adminUpdateListing: StoreContextValue["adminUpdateListing"] =
+    useCallback((id, patch) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        const listing = prev.listings.find((l) => l.id === id);
+        if (!admin || !listing) return prev;
+        return withLog(
+          prev,
+          admin,
+          "update_listing",
+          `${listing.title}: ${Object.keys(patch).join(", ")}`,
+          {
+            listings: prev.listings.map((l) =>
+              l.id === id ? { ...l, ...patch } : l,
+            ),
+          },
+        );
+      });
+    }, []);
+
+  const adminSetListingStatus: StoreContextValue["adminSetListingStatus"] =
+    useCallback((id, status) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        const listing = prev.listings.find((l) => l.id === id);
+        if (!admin || !listing) return prev;
+        return withLog(prev, admin, "listing_status", `${listing.title} → ${status}`, {
+          listings: prev.listings.map((l) =>
+            l.id === id ? { ...l, status } : l,
+          ),
+        });
+      });
+    }, []);
+
+  const adminRemoveMover: StoreContextValue["adminRemoveMover"] = useCallback(
+    (userId) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        const user = prev.users.find((u) => u.id === userId);
+        if (!admin || !user) return prev;
+        const open = prev.bookings.filter(
+          (b) =>
+            b.moverId === userId &&
+            (b.status === "pending" || b.status === "accepted") &&
+            !b.paid,
+        );
+        let next: StoreState = {
+          ...prev,
+          movers: prev.movers.filter((m) => m.userId !== userId),
+          users: prev.users.map((u) =>
+            u.id === userId
+              ? { ...u, roles: u.roles.filter((r) => r !== "mover") }
+              : u,
+          ),
+        };
+        for (const job of open) {
+          next = applyBookingStatus(next, job.id, "declined");
+        }
+        return withLog(prev, admin, "remove_mover", user.name, {
+          movers: next.movers,
+          users: next.users,
+          bookings: next.bookings,
+          listings: next.listings,
+        });
+      });
+    },
+    [],
+  );
+
+  const adminUpdateMoverRates: StoreContextValue["adminUpdateMoverRates"] =
+    useCallback((userId, patch) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        const mover = prev.movers.find((m) => m.userId === userId);
+        const user = prev.users.find((u) => u.id === userId);
+        if (!admin || !mover || !user) return prev;
+        return withLog(prev, admin, "update_mover", user.name, {
+          movers: prev.movers.map((m) =>
+            m.userId === userId ? { ...m, ...patch } : m,
+          ),
+        });
+      });
+    }, []);
+
+  const adminForceBookingStatus: StoreContextValue["adminForceBookingStatus"] =
+    useCallback((id, status) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        const booking = prev.bookings.find((b) => b.id === id);
+        if (!admin || !booking) return prev;
+        const next = applyBookingStatus(prev, id, status);
+        return withLog(prev, admin, "job_status", `${id} → ${status}`, {
+          bookings: next.bookings,
+          listings: next.listings,
+        });
+      });
+    }, []);
+
+  const adminRefundJob: StoreContextValue["adminRefundJob"] = useCallback(
+    (id) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        const booking = prev.bookings.find((b) => b.id === id);
+        if (!admin || !booking) return prev;
+        const next = applyBookingStatus(prev, id, "cancelled", false);
+        return withLog(prev, admin, "refund_job", id, {
+          bookings: next.bookings,
+          listings: next.listings,
+        });
+      });
+    },
+    [],
+  );
+
+  const adminRemoveReview: StoreContextValue["adminRemoveReview"] = useCallback(
+    (id) => {
+      setState((prev) => {
+        const admin = actor(prev);
+        if (!admin) return prev;
+        return withLog(prev, admin, "remove_review", id, {
+          reviews: prev.reviews.filter((r) => r.id !== id),
+        });
+      });
+    },
+    [],
+  );
+
   const value = useMemo<StoreContextValue>(
     () => ({
       ...state,
@@ -435,10 +789,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateBookingStatus,
       acceptJob,
       declineJob,
+      cancelJob,
       markPaid,
       sendMessage,
       addReview,
       resetDemo,
+      adminCreateUser,
+      adminUpdateUser,
+      adminSetSuspended,
+      adminUpdateListing,
+      adminSetListingStatus,
+      adminRemoveMover,
+      adminUpdateMoverRates,
+      adminForceBookingStatus,
+      adminRefundJob,
+      adminRemoveReview,
     }),
     [
       state,
@@ -457,10 +822,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateBookingStatus,
       acceptJob,
       declineJob,
+      cancelJob,
       markPaid,
       sendMessage,
       addReview,
       resetDemo,
+      adminCreateUser,
+      adminUpdateUser,
+      adminSetSuspended,
+      adminUpdateListing,
+      adminSetListingStatus,
+      adminRemoveMover,
+      adminUpdateMoverRates,
+      adminForceBookingStatus,
+      adminRefundJob,
+      adminRemoveReview,
     ],
   );
 

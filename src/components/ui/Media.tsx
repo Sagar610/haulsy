@@ -83,10 +83,10 @@ export function SectionHeading({
           {eyebrow}
         </p>
       ) : null}
-      <h2 className="font-display mt-2 text-3xl tracking-tight text-ink sm:text-4xl">
+      <h2 className="font-display mt-1 text-3xl tracking-tight text-ink sm:text-[2rem]">
         {title}
       </h2>
-      {body ? <p className="mt-3 text-ink-soft">{body}</p> : null}
+      {body ? <p className="mt-2 text-sm text-ink-soft sm:text-base">{body}</p> : null}
     </div>
   );
 }

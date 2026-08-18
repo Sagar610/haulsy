@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 const demos = [
+  { email: "admin@haulsy.test", label: "Haulsy · admin" },
   { email: "madhavi.buyer@haulsy.test", label: "Madhavi · buyer" },
   { email: "dharmesh.seller@haulsy.test", label: "Dharmesh · seller" },
   { email: "aisha.mover@haulsy.test", label: "Aisha · mover" },
@@ -21,6 +22,14 @@ function LoginForm() {
   const [password, setPassword] = useState("demo123");
   const [error, setError] = useState("");
 
+  function goAfterLogin(who: string) {
+    const dest =
+      next === "/dashboard" && who.toLowerCase() === "admin@haulsy.test"
+        ? "/admin"
+        : next;
+    router.push(dest);
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const res = login(email, password);
@@ -28,7 +37,19 @@ function LoginForm() {
       setError(res.error);
       return;
     }
-    router.push(next);
+    goAfterLogin(email);
+  }
+
+  function useDemo(demoEmail: string) {
+    setEmail(demoEmail);
+    setPassword("demo123");
+    setError("");
+    const res = login(demoEmail, "demo123");
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    goAfterLogin(demoEmail);
   }
 
   return (
@@ -40,10 +61,12 @@ function LoginForm() {
       <p className="mt-2 text-ink-soft">
         Demo accounts share the password <strong>demo123</strong>.
       </p>
-      <form onSubmit={submit} className="mt-8 space-y-4">
+      <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
         <Field label="Email">
           <Input
-            type="email"
+            type="text"
+            inputMode="email"
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -71,10 +94,7 @@ function LoginForm() {
             <button
               key={d.email}
               type="button"
-              onClick={() => {
-                setEmail(d.email);
-                setPassword("demo123");
-              }}
+              onClick={() => useDemo(d.email)}
               className="rounded-2xl border border-line bg-cream px-4 py-3 text-left text-sm hover:border-forest/30"
             >
               <span className="font-medium">{d.label}</span>

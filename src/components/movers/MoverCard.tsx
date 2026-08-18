@@ -2,7 +2,8 @@ import { Badge } from "@/components/ui/Badge";
 import { SmartImage } from "@/components/ui/Media";
 import { VEHICLES } from "@/lib/constants";
 import { formatPrice, initials } from "@/lib/format";
-import { formatMiles } from "@/lib/geo";
+import { formatKm } from "@/lib/geo";
+import { isOnShiftNow } from "@/lib/matching";
 import type { MoverProfile, User } from "@/lib/types";
 import { Star } from "lucide-react";
 
@@ -10,7 +11,7 @@ export function MoverCard({
   mover,
   user,
   fee,
-  miles,
+  km,
   hours,
   rating = 0,
   reviewCount = 0,
@@ -22,7 +23,7 @@ export function MoverCard({
   mover: MoverProfile;
   user?: User;
   fee?: number;
-  miles?: number;
+  km?: number;
   hours?: number;
   rating?: number;
   reviewCount?: number;
@@ -33,6 +34,7 @@ export function MoverCard({
 }) {
   const vehicle = VEHICLES[mover.vehicle];
   const name = user?.name ?? "Haulsy mover";
+  const onShift = isOnShiftNow(mover);
   const inner = (
     <>
       <div className="flex items-start gap-3">
@@ -47,7 +49,14 @@ export function MoverCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate font-semibold text-ink">{name}</p>
+            <p className="flex min-w-0 items-center gap-2 font-semibold text-ink">
+              <span className="truncate">{name}</span>
+              {onShift ? (
+                <span className="shrink-0">
+                  <Badge tone="forest">On now</Badge>
+                </span>
+              ) : null}
+            </p>
             <span className="inline-flex items-center gap-1 text-sm text-ink">
               <Star size={14} className="fill-tape text-tape" />
               {reviewCount ? rating.toFixed(1) : "New"}
@@ -64,7 +73,7 @@ export function MoverCard({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Badge tone="sage">{formatPrice(mover.hourlyRate)}/hr</Badge>
         <Badge tone="line">from {formatPrice(mover.jobRate)} / job</Badge>
-        {miles != null ? <Badge tone="line">{formatMiles(miles)}</Badge> : null}
+        {km != null ? <Badge tone="line">{formatKm(km)}</Badge> : null}
         {hours != null ? <Badge tone="line">{hours}h</Badge> : null}
         {fee != null ? (
           <Badge tone="forest">Haul {formatPrice(fee)}</Badge>

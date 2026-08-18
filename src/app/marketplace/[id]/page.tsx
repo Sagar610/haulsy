@@ -9,6 +9,8 @@ import {
   formatDims,
   formatPrice,
   formatVolume,
+  isListingSold,
+  isListingUnavailable,
   volumeM3,
 } from "@/lib/format";
 import { useStore } from "@/lib/store";
@@ -52,7 +54,7 @@ export default function ListingDetailPage({
   const seller = users.find((u) => u.id === listing.sellerId);
   const vol = volumeM3(listing.lengthCm, listing.widthCm, listing.heightCm);
   const cat = CATEGORIES.find((c) => c.id === listing.category)?.label;
-  const sold = listing.status === "sold";
+  const sold = isListingSold(listing.status);
   const reserved = listing.status === "reserved";
   const withdrawn = listing.status === "withdrawn";
   const live = listing.status === "live";
@@ -73,16 +75,16 @@ export default function ListingDetailPage({
     : `/login?next=${encodeURIComponent(`/checkout?listingId=${listing.id}`)}`;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
         <div>
-          <div className="relative overflow-hidden rounded-[28px] bg-sage">
+          <div className="relative overflow-hidden rounded-2xl bg-sage">
             <div className="aspect-[4/3]">
               {listing.photos[photo] ? (
                 <SmartImage
                   src={listing.photos[photo]}
                   alt={listing.title}
-                  className={sold || reserved || withdrawn ? "grayscale" : undefined}
+                  className={isListingUnavailable(listing.status) ? "grayscale" : undefined}
                 />
               ) : (
                 <div className="grid h-full place-items-center text-ink-soft">
@@ -90,7 +92,7 @@ export default function ListingDetailPage({
                 </div>
               )}
             </div>
-            {sold || reserved || withdrawn ? (
+            {isListingUnavailable(listing.status) ? (
               <div className="absolute inset-0 grid place-items-center bg-ink/35">
                 <span className="rotate-[-8deg] rounded-md bg-tape px-5 py-1.5 text-base font-bold tracking-[0.22em] uppercase text-ink">
                   {withdrawn ? "Taken down" : reserved ? "Reserved" : "Sold"}
@@ -111,7 +113,7 @@ export default function ListingDetailPage({
                   <SmartImage
                     src={src}
                     alt=""
-                    className={sold || reserved || withdrawn ? "grayscale" : undefined}
+                    className={isListingUnavailable(listing.status) ? "grayscale" : undefined}
                   />
                 </button>
               ))}
@@ -127,11 +129,11 @@ export default function ListingDetailPage({
             {reserved ? <Badge tone="tape">Reserved</Badge> : null}
             {withdrawn ? <Badge tone="tape">Taken down</Badge> : null}
           </div>
-          <h1 className="font-display mt-4 text-4xl tracking-tight">
+          <h1 className="font-display mt-3 text-3xl tracking-tight">
             {listing.title}
           </h1>
           <p
-            className={`mt-3 text-3xl font-semibold ${!live ? "text-ink-soft line-through" : "text-forest"}`}
+            className={`mt-2 text-2xl font-semibold ${!live ? "text-ink-soft line-through" : "text-forest"}`}
           >
             {formatPrice(listing.price)}
           </p>
@@ -158,8 +160,8 @@ export default function ListingDetailPage({
             {listing.description}
           </p>
 
-          <dl className="mt-6 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-sage p-4">
+          <dl className="mt-5 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-sage p-3">
               <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-forest">
                 <Ruler size={14} /> Size
               </dt>
@@ -168,19 +170,19 @@ export default function ListingDetailPage({
               </dd>
               <dd className="text-xs text-ink-soft">{formatVolume(vol)}</dd>
             </div>
-            <div className="rounded-2xl bg-sage p-4">
+            <div className="rounded-xl bg-sage p-3">
               <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-forest">
                 <Scale size={14} /> Weight
               </dt>
               <dd className="mt-1 text-sm">{listing.weightKg} kg</dd>
             </div>
-            <div className="col-span-2 rounded-2xl bg-sage p-4">
+            <div className="col-span-2 rounded-xl bg-sage p-3">
               <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-forest">
                 <MapPin size={14} /> Pickup
               </dt>
               <dd className="mt-1 text-sm">{listing.pickupAddress}</dd>
             </div>
-            <div className="col-span-2 rounded-2xl border border-line bg-cream p-4">
+            <div className="col-span-2 rounded-xl border border-line bg-cream p-3">
               <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
                 <Truck size={14} /> Suggested vehicle
               </dt>
@@ -195,12 +197,12 @@ export default function ListingDetailPage({
           </p>
 
           {live && !own ? (
-            <Button href={checkoutHref} size="lg" className="mt-6 w-full">
+            <Button href={checkoutHref} className="mt-5 w-full">
               Buy & book a mover
             </Button>
           ) : live && own ? (
-            <div className="mt-6 space-y-2">
-              <Button variant="outline" size="lg" className="w-full" disabled>
+            <div className="mt-5 space-y-2">
+              <Button variant="outline" className="w-full" disabled>
                 This is your listing
               </Button>
               <Button
@@ -213,7 +215,7 @@ export default function ListingDetailPage({
               </Button>
             </div>
           ) : (
-            <Button variant="outline" size="lg" className="mt-6 w-full" disabled>
+            <Button variant="outline" className="mt-5 w-full" disabled>
               {withdrawn
                 ? "Listing taken down"
                 : reserved
@@ -240,7 +242,7 @@ export default function ListingDetailPage({
       </div>
 
       {similar.length ? (
-        <section className="mt-14">
+        <section className="mt-10">
           <h2 className="font-display text-2xl">
             {sold ? "Still looking? These are live" : "You might also haul"}
           </h2>

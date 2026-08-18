@@ -7,7 +7,6 @@ import { Input, Select } from "@/components/ui/Field";
 import { CATEGORIES, CITIES, SIZE_FILTERS } from "@/lib/constants";
 import { volumeM3 } from "@/lib/format";
 import { useStore } from "@/lib/store";
-import { SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export default function MarketplacePage() {
@@ -35,61 +34,60 @@ export default function MarketplacePage() {
   }, [listings, q, city, category, size, includeSold]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <SectionHeading
           eyebrow="Marketplace"
           title="Bulky finds, with a van attached"
-          body="Filter by city and size so you only see what will actually fit on the way home."
+          body="Filter by city and size so you only see what will actually fit."
         />
         <Button href="/marketplace/new">Sell an item</Button>
       </div>
 
-      <div className="mt-8 rounded-[24px] border border-line bg-cream p-4">
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-ink-soft">
-          <SlidersHorizontal size={16} /> Filters
-        </div>
-        <div className="grid gap-3 md:grid-cols-4">
-          <Input
-            placeholder="Search sofas, fridges…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <Select value={city} onChange={(e) => setCity(e.target.value)}>
-            <option value="all">All cities</option>
-            {CITIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
-          <Select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="all">All categories</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
-          <Select value={size} onChange={(e) => setSize(e.target.value)}>
-            {SIZE_FILTERS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <label className="mt-3 flex items-center gap-2 text-sm text-ink-soft">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <Input
+          compact
+          placeholder="Search sofas, fridges…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="w-full sm:w-52"
+        />
+        <Select compact value={city} onChange={(e) => setCity(e.target.value)} className="w-36">
+          <option value="all">All cities</option>
+          {CITIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+        <Select
+          compact
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="w-40"
+        >
+          <option value="all">All categories</option>
+          {CATEGORIES.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </Select>
+        <Select compact value={size} onChange={(e) => setSize(e.target.value)} className="w-32">
+          {SIZE_FILTERS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </Select>
+        <label className="flex items-center gap-2 text-sm text-ink-soft">
           <input
             type="checkbox"
             checked={includeSold}
             onChange={(e) => setIncludeSold(e.target.checked)}
             className="accent-forest"
           />
-          Show sold items
+          Reserved & sold
         </label>
       </div>
 

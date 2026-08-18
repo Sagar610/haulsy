@@ -15,6 +15,7 @@ export default function BookingsPage() {
     listings,
     moveRequests,
     users,
+    cancelJob,
   } = useStore();
   const router = useRouter();
 
@@ -60,6 +61,7 @@ export default function BookingsPage() {
               move={moveRequests.find((m) => m.id === b.moveRequestId)}
               mover={users.find((u) => u.id === b.moverId)}
               viewer="customer"
+              onCancel={() => cancelJob(b.id)}
             />
           ))}
         </div>

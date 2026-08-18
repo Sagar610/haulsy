@@ -116,7 +116,7 @@ export const SIZE_FILTERS = [
 
 export const DEMO_PASSWORD = "demo123";
 
-export const STORE_KEY = "haulsy-v5-ca";
+export const STORE_KEY = "haulsy-v8-login";
 
 export const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   Toronto: { lat: 43.6532, lng: -79.3832 },
@@ -127,9 +127,9 @@ export const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   Ottawa: { lat: 45.4215, lng: -75.6972 },
 };
 
-export const VAN_MPH = 22;
-export const FREE_MILES = 4;
-export const PER_MILE_CAD = 1.75;
+export const VAN_KMH = 35;
+export const FREE_KM = 6;
+export const PER_KM_CAD = 1.1;
 
 export const NOTE_CHIPS = [
   "Stairs at pickup",

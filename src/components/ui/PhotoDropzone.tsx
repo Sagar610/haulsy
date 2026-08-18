@@ -31,7 +31,7 @@ export function PhotoDropzone({
     const accepted: File[] = [];
     for (const file of files) {
       if (!file.type.startsWith("image/") || !ACCEPT.includes(file.type)) {
-        setError("Use a JPEG, PNG or WebP photo.");
+        setError("Use a JPEG, PNG, WebP or GIF photo.");
         continue;
       }
       if (file.size > MAX_BYTES) {
@@ -128,7 +128,7 @@ export function PhotoDropzone({
             {busy ? "Adding photos…" : "Drop photos here, or choose files"}
           </p>
           <p className="mt-1 text-xs text-ink-soft">
-            JPEG, PNG or WebP · up to {remaining} more · first photo is the cover
+            JPEG, PNG, WebP or GIF · up to {remaining} more · first photo is the cover
           </p>
         </button>
       ) : (

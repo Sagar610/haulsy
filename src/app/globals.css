@@ -72,3 +72,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-family: inherit;
   background: #e7efe9;
 }
+
+.haulsy-pin {
+  background: none !important;
+  border: none !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(26, 26, 26, 0.12);
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px;
+  font-size: 13px;
+  color: #1a1a1a;
+}
