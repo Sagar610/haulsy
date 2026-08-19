@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthScreen } from "@/components/auth/AuthScreen";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { useStore } from "@/lib/store";
@@ -51,13 +52,12 @@ function ForgotForm() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-forest">
-        Account
-      </p>
-      <h1 className="font-display mt-2 text-4xl">Reset password</h1>
-      <p className="mt-2 text-ink-soft">
-        Use the email or mobile on the account. We send a one-time code.
+    <AuthScreen>
+      <h1 className="font-display text-[2rem] leading-tight tracking-tight text-ink">
+        Reset password
+      </h1>
+      <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+        Enter the email or mobile on the account. We’ll send a one-time code.
       </p>
 
       {step === "ask" ? (
@@ -120,11 +120,11 @@ function ForgotForm() {
       )}
 
       <p className="mt-8 text-center text-sm text-ink-soft">
-        <Link href="/login" className="font-medium text-forest">
-          Back to log in
+        <Link href="/login" className="font-semibold text-forest hover:text-forest-deep">
+          Back to sign in
         </Link>
       </p>
-    </div>
+    </AuthScreen>
   );
 }
 

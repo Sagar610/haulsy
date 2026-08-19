@@ -2,8 +2,16 @@
 
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { Button } from "@/components/ui/Button";
+import {
+  FilterChip,
+  FilterChips,
+  FilterClear,
+  FilterPanel,
+  FilterSearch,
+  FilterSelect,
+  FilterSwitch,
+} from "@/components/ui/Filters";
 import { EmptyState, SectionHeading } from "@/components/ui/Media";
-import { Input, Select } from "@/components/ui/Field";
 import { CATEGORIES, CITIES, SIZE_FILTERS } from "@/lib/constants";
 import { volumeM3 } from "@/lib/format";
 import { useStore } from "@/lib/store";
@@ -33,6 +41,21 @@ export default function MarketplacePage() {
     });
   }, [listings, q, city, category, size, includeSold]);
 
+  const dirty =
+    q.trim() !== "" ||
+    city !== "all" ||
+    category !== "all" ||
+    size !== "any" ||
+    includeSold;
+
+  function clearFilters() {
+    setQ("");
+    setCity("all");
+    setCategory("all");
+    setSize("any");
+    setIncludeSold(false);
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
@@ -44,56 +67,77 @@ export default function MarketplacePage() {
         <Button href="/marketplace/new">Sell an item</Button>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        <Input
-          compact
-          placeholder="Search sofas, fridges…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="w-full sm:w-52"
-        />
-        <Select compact value={city} onChange={(e) => setCity(e.target.value)} className="w-36">
-          <option value="all">All cities</option>
-          {CITIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </Select>
-        <Select
-          compact
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="w-40"
-        >
-          <option value="all">All categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
-        <Select compact value={size} onChange={(e) => setSize(e.target.value)} className="w-32">
-          {SIZE_FILTERS.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </Select>
-        <label className="flex items-center gap-2 text-sm text-ink-soft">
-          <input
-            type="checkbox"
-            checked={includeSold}
-            onChange={(e) => setIncludeSold(e.target.checked)}
-            className="accent-forest"
+      <div className="mt-6">
+        <FilterPanel>
+          <FilterSearch
+            placeholder="Search sofas, fridges, desks…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Search listings"
           />
-          Reserved & sold
-        </label>
+
+          <div className="mt-3">
+            <FilterChips label="Category">
+              <FilterChip
+                active={category === "all"}
+                onClick={() => setCategory("all")}
+              >
+                All
+              </FilterChip>
+              {CATEGORIES.map((c) => (
+                <FilterChip
+                  key={c.id}
+                  active={category === c.id}
+                  onClick={() => setCategory(c.id)}
+                >
+                  {c.label}
+                </FilterChip>
+              ))}
+            </FilterChips>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <FilterSelect
+              label="City"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            >
+              <option value="all">All cities</option>
+              {CITIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </FilterSelect>
+            <FilterSelect
+              label="Size"
+              value={size}
+              onChange={(e) => setSize(e.target.value)}
+            >
+              {SIZE_FILTERS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.id === "any" ? "Any" : s.label}
+                </option>
+              ))}
+            </FilterSelect>
+            <div className="sm:ml-auto">
+              <FilterSwitch
+                checked={includeSold}
+                onChange={setIncludeSold}
+                label="Show reserved & sold"
+              />
+            </div>
+          </div>
+        </FilterPanel>
       </div>
 
-      <p className="mt-6 text-sm text-ink-soft">
-        {filtered.length} listing{filtered.length === 1 ? "" : "s"}
-      </p>
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <p className="text-sm text-ink-soft">
+          {filtered.length} listing{filtered.length === 1 ? "" : "s"}
+          {includeSold ? "" : " available"}
+        </p>
+        <FilterClear visible={dirty} onClick={clearFilters} />
+      </div>
 
       {filtered.length === 0 ? (
         <div className="mt-6">
@@ -101,12 +145,7 @@ export default function MarketplacePage() {
             title="Nothing in that size"
             body="Try a wider size filter, or another city. Sellers list real dimensions so empty results usually mean a genuine gap."
             action={
-              <Button variant="outline" onClick={() => {
-                setQ("");
-                setCity("all");
-                setCategory("all");
-                setSize("any");
-              }}>
+              <Button variant="outline" onClick={clearFilters}>
                 Clear filters
               </Button>
             }

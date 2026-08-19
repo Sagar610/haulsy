@@ -12,6 +12,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { hydrated } = useStore();
   const pathname = usePathname();
   const admin = pathname.startsWith("/admin");
+  const auth =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password";
 
   if (admin) {
     return (
@@ -19,6 +23,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         {hydrated ? children : <PageLoader />}
       </div>
     );
+  }
+
+  if (auth) {
+    return hydrated ? children : <PageLoader />;
   }
 
   return (

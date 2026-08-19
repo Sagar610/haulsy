@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthScreen } from "@/components/auth/AuthScreen";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/Field";
@@ -92,16 +93,15 @@ function SignupForm() {
       setForm((f) => ({ ...f, [key]: e.target.value }));
 
   return (
-    <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-forest">
-        Join
-      </p>
-      <h1 className="font-display mt-2 text-4xl">Create a Haulsy account</h1>
-      <p className="mt-2 text-ink-soft">
-        Email and password, Google, or mobile with a one-time code.
+    <AuthScreen>
+      <h1 className="font-display text-[2rem] leading-tight tracking-tight text-ink">
+        Create an account
+      </h1>
+      <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+        Email and password, Google, or a mobile one-time code.
       </p>
 
-      <div className="mt-6">
+      <div className="mt-8">
         <GoogleButton
           onProfile={(profile) => {
             const res = loginGoogle(profile);
@@ -114,7 +114,15 @@ function SignupForm() {
         />
       </div>
 
-      <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
+      <div className="my-6 flex items-center gap-3">
+        <span className="h-px flex-1 bg-line" />
+        <span className="text-[11px] font-semibold tracking-[0.14em] text-ink-soft uppercase">
+          or
+        </span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+
+      <form onSubmit={submit} className="space-y-4" noValidate>
         <Field label="Full name">
           <Input value={form.name} onChange={set("name")} required />
         </Field>
@@ -183,12 +191,12 @@ function SignupForm() {
         Already have an account?{" "}
         <a
           href={`/login?next=${encodeURIComponent(next)}`}
-          className="font-medium text-forest"
+          className="font-semibold text-forest hover:text-forest-deep"
         >
-          Log in
+          Sign in
         </a>
       </p>
-    </div>
+    </AuthScreen>
   );
 }
 

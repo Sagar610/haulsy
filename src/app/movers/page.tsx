@@ -3,7 +3,11 @@
 import { AvailableNow } from "@/components/movers/AvailableNow";
 import { MoverCard } from "@/components/movers/MoverCard";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Field";
+import {
+  FilterClear,
+  FilterPanel,
+  FilterSelect,
+} from "@/components/ui/Filters";
 import { EmptyState, SectionHeading } from "@/components/ui/Media";
 import { CITIES, VEHICLES } from "@/lib/constants";
 import { dayName } from "@/lib/format";
@@ -44,21 +48,42 @@ export default function MoversPage() {
         <AvailableNow city={city === "all" ? undefined : city} />
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        <Select compact value={city} onChange={(e) => setCity(e.target.value)} className="w-40">
-          <option value="all">All cities</option>
-          {CITIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </Select>
-        <Select compact value={vehicle} onChange={(e) => setVehicle(e.target.value)} className="w-40">
-          <option value="all">Any vehicle</option>
-          {(Object.keys(VEHICLES) as VehicleType[]).map((v) => (
-            <option key={v} value={v}>
-              {VEHICLES[v].label}
-            </option>
-          ))}
-        </Select>
+      <div className="mt-5">
+        <FilterPanel>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <FilterSelect
+              label="City"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            >
+              <option value="all">All cities</option>
+              {CITIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </FilterSelect>
+            <FilterSelect
+              label="Vehicle"
+              value={vehicle}
+              onChange={(e) => setVehicle(e.target.value)}
+            >
+              <option value="all">Any</option>
+              {(Object.keys(VEHICLES) as VehicleType[]).map((v) => (
+                <option key={v} value={v}>
+                  {VEHICLES[v].label}
+                </option>
+              ))}
+            </FilterSelect>
+            <div className="sm:ml-auto">
+              <FilterClear
+                visible={city !== "all" || vehicle !== "all"}
+                onClick={() => {
+                  setCity("all");
+                  setVehicle("all");
+                }}
+              />
+            </div>
+          </div>
+        </FilterPanel>
       </div>
 
       {filtered.length === 0 ? (

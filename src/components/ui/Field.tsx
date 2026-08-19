@@ -84,7 +84,7 @@ export function Select({
     <select
       className={cn(
         isCompact ? compactFieldClass : fieldClass,
-        "appearance-none bg-[length:12px] pr-8",
+        "appearance-none bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235c574e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")] bg-no-repeat bg-[length:16px_16px] bg-[right_10px_center] pr-9",
         className,
       )}
       {...props}
